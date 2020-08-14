@@ -1,10 +1,14 @@
 package net.fabricmc.example;
 
 import net.fabricmc.api.*;
+import net.fabricmc.fabric.api.client.keybinding.v1.*;
 import net.fabricmc.fabric.api.client.rendering.v1.*;
+import net.fabricmc.fabric.api.event.client.*;
 import net.minecraft.block.*;
 import net.minecraft.client.*;
 import net.minecraft.client.gui.*;
+import net.minecraft.client.options.*;
+import net.minecraft.client.util.*;
 import net.minecraft.client.util.math.*;
 import net.minecraft.entity.*;
 import net.minecraft.entity.decoration.*;
@@ -13,31 +17,57 @@ import net.minecraft.text.*;
 import net.minecraft.util.hit.*;
 import net.minecraft.util.math.*;
 import net.minecraft.world.*;
+import org.lwjgl.glfw.*;
 
 public class ExampleMod implements ClientModInitializer {
-	@Override
-	public void onInitializeClient() {
-		HudRenderCallback.EVENT.register(ExampleMod::displayBoundingBox);
-	}
+	private static int id = 0;
 
 	private static long lastCalculationTime = 0;
 	private static boolean lastCalculationExists = false;
+	private static Text lastLabel = null;
 	private static int lastCalculationMinX = 0;
 	private static int lastCalculationMinY = 0;
 	private static int lastCalculationWidth = 0;
 	private static int lastCalculationHeight = 0;
 
+	@Override
+	public void onInitializeClient() {
+		KeyBinding printScreenshot = KeyBindingHelper.registerKeyBinding(
+				new KeyBinding(
+						"key.modid.capture",
+						GLFW.GLFW_KEY_R,
+						"key.category.all"
+				)
+		);
+
+		ClientTickCallback.EVENT.register(client -> {
+			while (printScreenshot.wasPressed() && lastCalculationExists) {
+				SaveDataScreenshot.saveScreenshot(
+						client,
+						id++,
+						lastLabel.getString().toLowerCase(),
+						lastCalculationMinX,
+						lastCalculationMinY,
+						lastCalculationWidth,
+						lastCalculationHeight
+				);
+			}
+		});
+
+		HudRenderCallback.EVENT.register(ExampleMod::displayBoundingBox);
+	}
+
 	private static void displayBoundingBox(MatrixStack matrixStack, float tickDelta) {
+		MinecraftClient client = MinecraftClient.getInstance();
+
 		long currentTime = System.currentTimeMillis();
 		if(lastCalculationExists && currentTime - lastCalculationTime < 1000/45) {
-			drawHollowFill(matrixStack, lastCalculationMinX, lastCalculationMinY,
-					lastCalculationWidth, lastCalculationHeight, 2, 0xffff0000);
+			printDataOnScreen(client, matrixStack);
 			return;
 		}
 
 		lastCalculationTime = currentTime;
 
-		MinecraftClient client = MinecraftClient.getInstance();
 		int width = client.getWindow().getScaledWidth();
 		int height = client.getWindow().getScaledHeight();
 		Vec3d cameraDirection = client.cameraEntity.getRotationVec(tickDelta);
@@ -122,10 +152,22 @@ public class ExampleMod implements ClientModInitializer {
 		lastCalculationMinY = minY;
 		lastCalculationWidth = maxX - minX;
 		lastCalculationHeight = maxY - minY;
+		lastLabel = getLabel(hit);
 
-		drawHollowFill(matrixStack, minX, minY, maxX - minX, maxY - minY, 2, 0xffff0000);
-		LiteralText text = new LiteralText("Bounding " + minX + " " + minY + " " + width + " " + height + ": ");
-		client.player.sendMessage(text.append(getLabel(hit)), true);
+		printDataOnScreen(client, matrixStack);
+	}
+
+	private static void printDataOnScreen(MinecraftClient client, MatrixStack matrixStack) {
+		drawHollowFill(matrixStack, lastCalculationMinX, lastCalculationMinY,
+				lastCalculationWidth, lastCalculationHeight, 2, 0xffff0000);
+		LiteralText text = new LiteralText(String.format(
+				"Bounding %d %d %d %d: ",
+				lastCalculationMinX,
+				lastCalculationMinY,
+				lastCalculationWidth,
+				lastCalculationHeight
+		));
+		client.player.sendMessage(text.append(lastLabel), true);
 	}
 
 	private static void drawHollowFill(MatrixStack matrixStack, int x, int y, int width, int height, int stroke, int color) {
