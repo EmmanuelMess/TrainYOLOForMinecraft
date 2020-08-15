@@ -156,7 +156,7 @@ public class ExampleMod implements ClientModInitializer {
 			SaveDataScreenshot.saveScreenshot(
 					client,
 					id++,
-					lastLabel.getString().toLowerCase(),
+					lastLabel.getString().toLowerCase().replace(' ', '_'),
 					lastCalculationMinX,
 					lastCalculationMinY,
 					lastCalculationWidth,
