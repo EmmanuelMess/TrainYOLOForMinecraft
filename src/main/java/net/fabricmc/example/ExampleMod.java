@@ -8,7 +8,6 @@ import net.minecraft.block.*;
 import net.minecraft.client.*;
 import net.minecraft.client.gui.*;
 import net.minecraft.client.options.*;
-import net.minecraft.client.util.*;
 import net.minecraft.client.util.math.*;
 import net.minecraft.entity.*;
 import net.minecraft.entity.decoration.*;
@@ -21,6 +20,9 @@ import org.lwjgl.glfw.*;
 
 public class ExampleMod implements ClientModInitializer {
 	private static int id = 0;
+
+	private static boolean takeScreenshot = false;
+	private static boolean printLabel = false;
 
 	private static long lastCalculationTime = 0;
 	private static boolean lastCalculationExists = false;
@@ -42,15 +44,7 @@ public class ExampleMod implements ClientModInitializer {
 
 		ClientTickCallback.EVENT.register(client -> {
 			while (printScreenshot.wasPressed() && lastCalculationExists) {
-				SaveDataScreenshot.saveScreenshot(
-						client,
-						id++,
-						lastLabel.getString().toLowerCase(),
-						lastCalculationMinX,
-						lastCalculationMinY,
-						lastCalculationWidth,
-						lastCalculationHeight
-				);
+				takeScreenshot = true;
 			}
 		});
 
@@ -158,16 +152,34 @@ public class ExampleMod implements ClientModInitializer {
 	}
 
 	private static void printDataOnScreen(MinecraftClient client, MatrixStack matrixStack) {
+		if(takeScreenshot) {
+			SaveDataScreenshot.saveScreenshot(
+					client,
+					id++,
+					lastLabel.getString().toLowerCase(),
+					lastCalculationMinX,
+					lastCalculationMinY,
+					lastCalculationWidth,
+					lastCalculationHeight
+			);
+
+			takeScreenshot = false;
+			return;
+		}
+
 		drawHollowFill(matrixStack, lastCalculationMinX, lastCalculationMinY,
 				lastCalculationWidth, lastCalculationHeight, 2, 0xffff0000);
-		LiteralText text = new LiteralText(String.format(
-				"Bounding %d %d %d %d: ",
-				lastCalculationMinX,
-				lastCalculationMinY,
-				lastCalculationWidth,
-				lastCalculationHeight
-		));
-		client.player.sendMessage(text.append(lastLabel), true);
+
+		if(printLabel) {
+			LiteralText text = new LiteralText(String.format(
+					"Bounding %d %d %d %d: ",
+					lastCalculationMinX,
+					lastCalculationMinY,
+					lastCalculationWidth,
+					lastCalculationHeight
+			));
+			client.player.sendMessage(text.append(lastLabel), true);
+		}
 	}
 
 	private static void drawHollowFill(MatrixStack matrixStack, int x, int y, int width, int height, int stroke, int color) {
