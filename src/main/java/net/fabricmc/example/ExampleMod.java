@@ -1,5 +1,6 @@
 package net.fabricmc.example;
 
+import com.mojang.blaze3d.systems.*;
 import net.fabricmc.api.*;
 import net.fabricmc.fabric.api.client.keybinding.v1.*;
 import net.fabricmc.fabric.api.client.rendering.v1.*;
@@ -18,8 +19,12 @@ import net.minecraft.util.math.*;
 import net.minecraft.world.*;
 import org.lwjgl.glfw.*;
 
+import java.io.*;
+import java.util.*;
+
 public class ExampleMod implements ClientModInitializer {
-	private static int id = 0;
+	private static final ArrayList<String> CLASSES = new ArrayList<>();
+	private static final ArrayList<FinalizeData.LearnableData> DATA = new ArrayList<>(6000);
 
 	private static boolean takeScreenshot = false;
 	private static boolean printLabel = false;
@@ -42,13 +47,39 @@ public class ExampleMod implements ClientModInitializer {
 				)
 		);
 
+		KeyBinding formatData = KeyBindingHelper.registerKeyBinding(
+				new KeyBinding(
+						"key.modid.format",
+						GLFW.GLFW_KEY_Y,
+						"key.category.all"
+				)
+		);
+
 		ClientTickCallback.EVENT.register(client -> {
 			while (printScreenshot.wasPressed() && lastCalculationExists) {
 				takeScreenshot = true;
 			}
+
+			while (formatData.wasPressed()) {
+				if (!RenderSystem.isOnRenderThread()) {
+					RenderSystem.recordRenderCall(() -> saveData(client));
+				} else {
+					saveData(client);
+				}
+			}
 		});
 
 		HudRenderCallback.EVENT.register(ExampleMod::displayBoundingBox);
+	}
+
+	private static void saveData(MinecraftClient client) {
+		try {
+			File finalDir = new File(client.runDirectory.getParentFile(), "darknet-data");
+			finalDir.mkdir();
+			FinalizeData.finalizeData(finalDir, CLASSES, DATA);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private static void displayBoundingBox(MatrixStack matrixStack, float tickDelta) {
@@ -153,14 +184,27 @@ public class ExampleMod implements ClientModInitializer {
 
 	private static void printDataOnScreen(MinecraftClient client, MatrixStack matrixStack) {
 		if(takeScreenshot) {
+			File rawObjDir = new File(client.runDirectory, "darknet-data/data/obj.raw");
+			rawObjDir.mkdirs();
+
 			SaveDataScreenshot.saveScreenshot(
-					client,
-					id++,
-					lastLabel.getString().toLowerCase().replace(' ', '_'),
-					lastCalculationMinX,
-					lastCalculationMinY,
-					lastCalculationWidth,
-					lastCalculationHeight
+					rawObjDir,
+					DATA.size(),
+					client.getFramebuffer(),
+					(imageFile) -> {
+						CLASSES.add(lastLabel.getString());
+
+						DATA.add(new FinalizeData.LearnableData(
+								DATA.size(),
+								imageFile,
+								new FinalizeData.BoundingBox(
+										lastCalculationMinX + lastCalculationWidth / 2,
+										lastCalculationMinY + lastCalculationHeight / 2,
+										lastCalculationWidth,
+										lastCalculationHeight
+								)
+						));
+					}
 			);
 
 			takeScreenshot = false;

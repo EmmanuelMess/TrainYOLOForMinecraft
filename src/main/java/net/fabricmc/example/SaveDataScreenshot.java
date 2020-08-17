@@ -6,94 +6,54 @@ import net.minecraft.client.gl.*;
 import net.minecraft.client.texture.*;
 import net.minecraft.util.*;
 
+import javax.imageio.*;
 import java.io.*;
-
-import static net.minecraft.client.util.ScreenshotUtils.*;
+import java.util.function.*;
 
 public final class SaveDataScreenshot {
 
     public static void saveScreenshot(
-            MinecraftClient client,
+            File dataDir,
             int id,
-            String label,
-            int startX,
-            int startY,
-            int width,
-            int height
+            Framebuffer framebuffer,
+            Consumer<File> callback
     ) {
-        File dir = new File(client.runDirectory, "data");
-        dir.mkdir();
-
-        saveScreenshot(
-                dir,
-                id,
-                client.getWindow().getFramebufferWidth(),
-                client.getWindow().getFramebufferHeight(),
-                client.getFramebuffer(),
-                () -> saveMetadata(dir, id, label, startX, startY, width, height)
-        );
-    }
-
-    private static void saveScreenshot(
-            File dataDir, int id, int framebufferWidth, int framebufferHeight, Framebuffer framebuffer, Runnable messageReceiver) {
         if (!RenderSystem.isOnRenderThread()) {
             RenderSystem.recordRenderCall(() ->
-                    saveScreenshotInner(dataDir, id, framebufferWidth, framebufferHeight, framebuffer, messageReceiver));
+                    saveScreenshotInner(dataDir, id, framebuffer, callback));
         } else {
-            saveScreenshotInner(dataDir, id, framebufferWidth, framebufferHeight, framebuffer, messageReceiver);
+            saveScreenshotInner(dataDir, id, framebuffer, callback);
         }
-
     }
 
     private static void saveScreenshotInner(
             File dataDir,
             int id,
-            int framebufferWidth,
-            int framebufferHeight,
             Framebuffer framebuffer,
-            Runnable messageReceiver
+            Consumer<File> callback
     ) {
-        NativeImage nativeImage = takeScreenshot(framebufferWidth, framebufferHeight, framebuffer);
-        File file = new File(dataDir, "images");
-        file.mkdir();
-        File file3 = new File(file, id + ".png");
+
+        NativeImage nativeImage = takeScreenshot(framebuffer);
+        File file3 = new File(dataDir, id + ".png");
 
         Util.method_27958().execute(() -> {
             try {
                 nativeImage.writeFile(file3);
-                messageReceiver.run();
+                callback.accept(file3);
             } catch (IOException var7) {
-
-            } finally {
-                nativeImage.close();
+                var7.printStackTrace();
             }
-
         });
     }
 
-    private static void saveMetadata(
-            File gameDirectory,
-            int id,
-            String label,
-            int startX,
-            int startY,
-            int width,
-            int height
-    ) {
-        File file = new File(gameDirectory, "labels");
-        file.mkdir();
-        File file3 = new File(file, id + ".txt");
-
-        Util.method_27958().execute(() -> {
-            FileWriter writer;
-            try {
-                writer = new FileWriter(file3);
-                writer.write(String.format("%s %d %d %d %d", label, startX, startY, width, height));
-                writer.close();
-            } catch (Exception var7) {
-                //fail
-            }
-        });
+    private static NativeImage takeScreenshot(Framebuffer framebuffer) {
+        int width = framebuffer.textureWidth;
+        int height = framebuffer.textureHeight;
+        NativeImage nativeImage = new NativeImage(width, height, false);
+        RenderSystem.bindTexture(framebuffer.colorAttachment);
+        nativeImage.loadFromTextureImage(0, true);
+        nativeImage.mirrorVertically();
+        return nativeImage;
     }
 
     private SaveDataScreenshot() {
