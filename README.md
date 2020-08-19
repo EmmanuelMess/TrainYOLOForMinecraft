@@ -1,12 +1,21 @@
-# Bounding Box Minecraft Mod
+# YOLO tool for Minecraft
 
-
+This tool lets you generate datasets for darknet, from minecraft.
 
 <img src="screenshot.png" data-canonical-src="screenshot.png" height="500" />
 
 ## Setup
 
 For setup instructions please see the [fabric wiki page](https://fabricmc.net/wiki/tutorial:setup) that relates to the IDE that you are using.
+
+Press R on a block to save it as part of the dataset.
+
+Once you finish press Y to save it.
+
+Then run:
+
+> make run && make run
+
 
 ## License
 

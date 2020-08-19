@@ -27,3 +27,8 @@ bin/
 # fabric
 
 run/
+
+# data
+
+darknet-data/
+/yolov4.conv.137
